@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEditor;
 using System.Linq;
 using System.IO;
+using System;
 
 [CustomEditor(typeof(Level))]
 public class LevelInspector : Editor {
@@ -39,6 +40,7 @@ public class LevelInspector : Editor {
         level = target as Level;
         level.transform.hideFlags = HideFlags.NotEditable;
         ResetResizeValues();
+        InitMode();
     }
 
 
@@ -46,6 +48,28 @@ public class LevelInspector : Editor {
     private void ResetResizeValues() {
         newTotalColumns = level.TotalColumns;
         newTotalRows = level.TotalRows;
+    }
+
+    private void InitMode() {
+        List<Mode> modes = GetListFromEnum<Mode>();
+        modeLabels = GetEnumName(modes);
+    }
+
+    public static List<T> GetListFromEnum<T>() {
+        var result = new List<T>();
+        Array enums = Enum.GetValues(typeof(T));
+        foreach (T e in enums) {
+            result.Add(e);
+        }
+        return result;
+    }
+
+    public static List<string> GetEnumName<T>(List<T> enums) {
+        var result = new List<string>();
+        foreach (T item in enums) {
+            result.Add(item.ToString());
+        }
+        return result;
     }
 
     #endregion
@@ -91,12 +115,13 @@ public class LevelInspector : Editor {
 
     #region OnSceneGUI
     private void OnSceneGUI() {
-        //DrawModeGUI();
-        //ModeHandler();
-        //DrawAlphaGUI();
+        DrawModeGUI();
+        ModeHandler();
+        EventHandler();
+        DrawAlphaGUI();
         //DrawPaletteItemCategoryGUI();
-        //DrawSaveAndLoadGUI();
-        //DrawShowGridGUI();
+        DrawSaveAndLoadGUI();
+        DrawShowGridGUI();
     }
 
     private void DrawModeGUI() {
@@ -113,10 +138,15 @@ public class LevelInspector : Editor {
             _ => Tool.View,
         };
         if (selectedMode != currentMode) {
+            currentMode = selectedMode;
             Repaint();
         }
         level.ShowWalkArea = selectedMode == Mode.EditWalkArea;
-        SceneView.currentDrawingSceneView.in2DMode = true;
+        //SceneView.currentDrawingSceneView.in2DMode = true;
+    }
+
+    private void EventHandler() {
+
     }
 
     private void EditWalkArea(int col, int row) {
@@ -132,7 +162,7 @@ public class LevelInspector : Editor {
 
     private void DrawAlphaGUI() {
         Handles.BeginGUI();
-        GUILayout.BeginArea(new Rect(Screen.safeArea.width - 500, 10, 480, 100));
+        GUILayout.BeginArea(new Rect(Screen.safeArea.width - 400, 10, 480, 100));
         using (new EditorGUILayout.HorizontalScope("box")) {
             GUILayout.Label("全局alpha值", GUILayout.MaxWidth(150));
             float lastAlpha = alpha;
@@ -154,8 +184,8 @@ public class LevelInspector : Editor {
             }
             GUILayout.Space(20);
             if (GUILayout.Button("关闭", GUILayout.MaxHeight(40))) {
-                Selection.activeGameObject = GameObject.Find("LevelMainMenu");
-                DestroyImmediate(level.gameObject);
+                //Selection.activeGameObject = GameObject.Find("LevelMainMenu");
+                //DestroyImmediate(level.gameObject);
             }
         }
         GUILayout.EndArea();

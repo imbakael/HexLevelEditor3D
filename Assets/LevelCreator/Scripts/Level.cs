@@ -32,6 +32,7 @@ public class Level : MonoBehaviour {
             GridGizmo(TotalColumns, TotalRows);
             Gizmos.color = oldColor;
             Gizmos.matrix = oldMatrix;
+
         }
 
         //if (ShowWalkArea && WalkArea != null && WalkArea.Length > 0) {
@@ -106,17 +107,6 @@ public class Level : MonoBehaviour {
             }
             Gizmos.DrawLine(center + HexMetrics.corners[1], center + HexMetrics.corners[2]);
         }
-    }
-
-    private void GridTileBorderGizmo(int col, int row) {
-        var leftDown = new Vector3(col * GRID_CELL_SIZE, row * GRID_CELL_SIZE, 0);
-        var leftUp = new Vector3(col * GRID_CELL_SIZE, (row + 1) * GRID_CELL_SIZE, 0);
-        var rightDown = new Vector3((col + 1) * GRID_CELL_SIZE, row * GRID_CELL_SIZE, 0);
-        var rightUp = new Vector3((col + 1) * GRID_CELL_SIZE, (row + 1) * GRID_CELL_SIZE, 0);
-        Gizmos.DrawLine(leftDown, leftUp);
-        Gizmos.DrawLine(leftDown, rightDown);
-        Gizmos.DrawLine(rightUp, leftUp);
-        Gizmos.DrawLine(rightUp, rightDown);
     }
 
     #endregion

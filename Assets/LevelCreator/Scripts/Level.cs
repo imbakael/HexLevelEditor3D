@@ -9,6 +9,12 @@ public class Level : MonoBehaviour {
     public const string DIRECTORY = "/SaveData/";
     public const float GRID_CELL_SIZE = 1f;
 
+    [SerializeField] private LevelPiece[] pieces = default;
+    public LevelPiece[] Pieces {
+        get { return pieces; }
+        set { pieces = value; }
+    }
+
     public Transform[] Layers { get; set; }
     public int TotalColumns { get; set; } = 15; // 列数，x方向
     public int TotalRows { get; set; } = 11; // 行数, y方向
@@ -32,7 +38,6 @@ public class Level : MonoBehaviour {
             GridGizmo(TotalColumns, TotalRows);
             Gizmos.color = oldColor;
             Gizmos.matrix = oldMatrix;
-
         }
 
         //if (ShowWalkArea && WalkArea != null && WalkArea.Length > 0) {

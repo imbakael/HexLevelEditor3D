@@ -18,12 +18,18 @@ public struct HexCoordinates {
     }
 
     // 视图坐标转逻辑坐标
-    public static HexCoordinates FromOffsetCoordinates(int x, int z) {
-        return new HexCoordinates(x - z / 2, z);
+    public static HexCoordinates FromOffsetCoordinates(int gridX, int girdZ) {
+        return new HexCoordinates(gridX - girdZ / 2, girdZ);
     }
 
     public int GetIndex(int width) {
         return x + z * width + z / 2;
+    }
+
+    public static int GetIndex(int gridX, int gridZ, int width) {
+        int hexX = gridX - gridZ / 2;
+        int hexZ = gridZ;
+        return hexX + hexZ * width + hexZ / 2;
     }
 
     /// <summary>

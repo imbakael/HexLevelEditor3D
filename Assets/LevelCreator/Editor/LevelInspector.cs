@@ -11,7 +11,7 @@ public class LevelInspector : Editor {
         View,
         Paint,
         Edit,
-        EditWalkArea
+        Erase
     }
 
     private Mode currentMode;
@@ -24,7 +24,9 @@ public class LevelInspector : Editor {
     private int newTotalColumns;
     private int newTotalRows;
 
+    private PaletteItem itemSelected;
     private Texture2D itemPreview;
+    private LevelPiece pieceSelected;
     private SpriteRenderer spriteRendererInspected;
 
     private float alpha = 1f;
@@ -33,35 +35,47 @@ public class LevelInspector : Editor {
     private int originalPosY;
 
     private void OnEnable() {
-        if (EditorApplication.isPlaying) {
-            return;
-        }
         Debug.Log("level onEnable");
         level = target as Level;
         level.transform.hideFlags = HideFlags.NotEditable;
+        InitLevel();
         ResetResizeValues();
         InitMode();
+        PaletteWindow.ItemSelectedEvent += UpdateCurrentPiece;
     }
 
+    private void OnDisable() {
+        Debug.Log("level onDisable");
+        PaletteWindow.ItemSelectedEvent -= UpdateCurrentPiece;
+    }
+
+    private void UpdateCurrentPiece(PaletteItem item, Texture2D preview) {
+        itemSelected = item;
+        itemPreview = preview;
+        pieceSelected = item.GetComponent<LevelPiece>();
+        Repaint();
+    }
+
+    private void OnDestroy() {
+        Debug.Log("onDestroy was called");
+    }
 
     #region Init
+    private void InitLevel() {
+        if (level.Pieces == null || level.Pieces.Length == 0) {
+            Debug.Log("init pieces array");
+            level.Pieces = new LevelPiece[level.TotalColumns * level.TotalRows];
+        }
+    }
+
     private void ResetResizeValues() {
         newTotalColumns = level.TotalColumns;
         newTotalRows = level.TotalRows;
     }
 
     private void InitMode() {
-        List<Mode> modes = GetListFromEnum<Mode>();
+        List<Mode> modes = EditorUtils.GetListFromEnum<Mode>();
         modeLabels = GetEnumName(modes);
-    }
-
-    public static List<T> GetListFromEnum<T>() {
-        var result = new List<T>();
-        Array enums = Enum.GetValues(typeof(T));
-        foreach (T e in enums) {
-            result.Add(e);
-        }
-        return result;
     }
 
     public static List<string> GetEnumName<T>(List<T> enums) {
@@ -76,7 +90,20 @@ public class LevelInspector : Editor {
 
     #region OnInspectorGUI
     public override void OnInspectorGUI() {
+        DrawLevelDataGUI();
         DrawLevelSizeGUI();
+        DrawPieceSelectedGUI();
+        if (GUI.changed) {
+            EditorUtility.SetDirty(level);
+        }
+    }
+
+    private void DrawLevelDataGUI() {
+        EditorGUILayout.LabelField("Data", EditorStyles.boldLabel);
+        using (new EditorGUILayout.VerticalScope("box")) {
+            level.ShowGrid = EditorGUILayout.Toggle("显示网格", level.ShowGrid);
+            level.ShowWalkArea = EditorGUILayout.Toggle("显示可行走区域", level.ShowWalkArea);
+        }
     }
 
     private void DrawLevelSizeGUI() {
@@ -104,7 +131,33 @@ public class LevelInspector : Editor {
         }
     }
 
+    private void DrawPieceSelectedGUI() {
+        EditorGUILayout.LabelField("Piece Selected", EditorStyles.boldLabel);
+        if (pieceSelected == null) {
+            EditorGUILayout.HelpBox("No piece selected!", MessageType.Info);
+        } else {
+            using (new EditorGUILayout.VerticalScope("box")) {
+                EditorGUILayout.LabelField(new GUIContent(itemPreview), GUILayout.Height(40));
+                EditorGUILayout.LabelField(itemSelected.itemName);
+            }
+        }
+    }
+
     private void ResizeLevel() {
+        LevelPiece[] newPieces = new LevelPiece[newTotalColumns * newTotalRows];
+        for (int col = 0; col < level.TotalColumns; col++) {
+            for (int row = 0; row < level.TotalRows; row++) {
+                if (col < newTotalRows && row < newTotalRows) {
+                    newPieces[col + row * newTotalColumns] = level.Pieces[col + row * level.TotalColumns];
+                } else {
+                    LevelPiece lp = level.Pieces[col + row * level.TotalColumns];
+                    if (lp != null) {
+                        DestroyImmediate(lp.gameObject);
+                    }
+                }
+            }
+        }
+        level.Pieces = newPieces;
         level.TotalColumns = newTotalColumns;
         level.TotalRows = newTotalRows;
         //Save(level);
@@ -133,20 +186,38 @@ public class LevelInspector : Editor {
     }
 
     private void ModeHandler() {
-        Tools.current = selectedMode switch {
-            Mode.Paint or Mode.Edit or Mode.EditWalkArea => Tool.None,
-            _ => Tool.View,
-        };
+        switch (selectedMode) {
+            case Mode.Paint:
+            case Mode.Edit:
+            case Mode.Erase:
+                Tools.current = Tool.None;
+                break;
+            case Mode.View:
+            default:
+                Tools.current = Tool.View;
+                break;
+        }
         if (selectedMode != currentMode) {
             currentMode = selectedMode;
             Repaint();
         }
-        level.ShowWalkArea = selectedMode == Mode.EditWalkArea;
-        //SceneView.currentDrawingSceneView.in2DMode = true;
+        level.ShowWalkArea = selectedMode == Mode.Erase;
+        SceneView.currentDrawingSceneView.orthographic = true;
     }
 
     private void EventHandler() {
-
+        HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
+        Camera camera = SceneView.currentDrawingSceneView.camera;
+        Vector3 mousePosition = Event.current.mousePosition;
+        //Vector3 beforeMousePosition = mousePosition;
+        mousePosition = new Vector2(mousePosition.x, camera.pixelHeight - mousePosition.y);
+        //Debug.LogFormat("pos1, pos2 : {0}, {1}", beforeMousePosition, mousePosition);
+        Vector3 worldPos = camera.ScreenToWorldPoint(mousePosition);
+        //Debug.Log("worldpos = " + worldPos);
+        Vector3Int gridPos = level.WorldToGridCoordinates(worldPos);
+        int x = gridPos.x;
+        int z = gridPos.z;
+        Debug.LogFormat("GridPos {0}, {1}", x, z);
     }
 
     private void EditWalkArea(int col, int row) {

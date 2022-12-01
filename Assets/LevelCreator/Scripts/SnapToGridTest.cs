@@ -8,8 +8,8 @@ public class SnapToGridTest : MonoBehaviour {
     [SerializeField] private Level level = default;
 
     private void Update() {
-        var gridCoord = level.WorldToGridCoordinates(transform.position);
-        transform.position = level.GridToWorldCoordinates(gridCoord.x, gridCoord.z);
+        //var gridCoord = level.WorldToGridCoordinates(transform.position);
+        //transform.position = level.GridToWorldCoordinates(gridCoord.x, gridCoord.z);
     }
 
     private void OnDrawGizmos() {

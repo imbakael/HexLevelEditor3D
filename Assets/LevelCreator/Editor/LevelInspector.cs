@@ -28,11 +28,14 @@ public class LevelInspector : Editor {
     private Texture2D itemPreview;
     private LevelPiece pieceSelected;
     private SpriteRenderer spriteRendererInspected;
+    private PaletteItem itemInspected;
+
+    private int originalPosX;
+    private int originalPosZ;
 
     private float alpha = 1f;
 
-    private int originalPosX;
-    private int originalPosY;
+    private GUIStyle titleStyle;
 
     private void OnEnable() {
         Debug.Log("level onEnable");
@@ -41,6 +44,7 @@ public class LevelInspector : Editor {
         InitLevel();
         ResetResizeValues();
         InitMode();
+        InitStyles();
         PaletteWindow.ItemSelectedEvent += UpdateCurrentPiece;
     }
 
@@ -56,14 +60,8 @@ public class LevelInspector : Editor {
         Repaint();
     }
 
-    private void OnDestroy() {
-        Debug.Log("onDestroy was called");
-    }
-
-    #region Init
     private void InitLevel() {
         if (level.Pieces == null || level.Pieces.Length == 0) {
-            Debug.Log("init pieces array");
             level.Pieces = new LevelPiece[level.TotalColumns * level.TotalRows];
         }
     }
@@ -78,6 +76,11 @@ public class LevelInspector : Editor {
         modeLabels = GetEnumName(modes);
     }
 
+    private void InitStyles() {
+        GUISkin skin = (GUISkin)Resources.Load("LevelCreatorSkin");
+        titleStyle = skin.label;
+    }
+
     public static List<string> GetEnumName<T>(List<T> enums) {
         var result = new List<string>();
         foreach (T item in enums) {
@@ -86,20 +89,19 @@ public class LevelInspector : Editor {
         return result;
     }
 
-    #endregion
-
     #region OnInspectorGUI
     public override void OnInspectorGUI() {
         DrawLevelDataGUI();
         DrawLevelSizeGUI();
         DrawPieceSelectedGUI();
+        DrawInspectedItemGUI();
         if (GUI.changed) {
             EditorUtility.SetDirty(level);
         }
     }
 
     private void DrawLevelDataGUI() {
-        EditorGUILayout.LabelField("Data", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("数据", titleStyle);
         using (new EditorGUILayout.VerticalScope("box")) {
             level.ShowGrid = EditorGUILayout.Toggle("显示网格", level.ShowGrid);
             level.ShowWalkArea = EditorGUILayout.Toggle("显示可行走区域", level.ShowWalkArea);
@@ -107,7 +109,7 @@ public class LevelInspector : Editor {
     }
 
     private void DrawLevelSizeGUI() {
-        EditorGUILayout.LabelField("Size", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("地图大小", titleStyle);
         using (new EditorGUILayout.HorizontalScope("box")) {
             using (new EditorGUILayout.VerticalScope()) {
                 newTotalColumns = EditorGUILayout.IntField("Columns", Mathf.Max(1, newTotalColumns));
@@ -132,7 +134,7 @@ public class LevelInspector : Editor {
     }
 
     private void DrawPieceSelectedGUI() {
-        EditorGUILayout.LabelField("Piece Selected", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("选中瓦片", titleStyle);
         if (pieceSelected == null) {
             EditorGUILayout.HelpBox("No piece selected!", MessageType.Info);
         } else {
@@ -140,6 +142,21 @@ public class LevelInspector : Editor {
                 EditorGUILayout.LabelField(new GUIContent(itemPreview), GUILayout.Height(40));
                 EditorGUILayout.LabelField(itemSelected.itemName);
             }
+        }
+    }
+
+    private void DrawInspectedItemGUI() {
+        if (currentMode != Mode.Edit) {
+            return;
+        }
+        EditorGUILayout.LabelField("编辑瓦片", titleStyle);
+        if (itemInspected != null) {
+            using (new EditorGUILayout.VerticalScope("box")) {
+                EditorGUILayout.LabelField("Name:" + itemInspected.name);
+                CreateEditor(itemInspected.inspectedScript).OnInspectorGUI();
+            }
+        } else {
+            EditorGUILayout.HelpBox("No piece to Edit!", MessageType.Info);
         }
     }
 
@@ -199,25 +216,115 @@ public class LevelInspector : Editor {
         }
         if (selectedMode != currentMode) {
             currentMode = selectedMode;
+            itemInspected = null;
             Repaint();
         }
         level.ShowWalkArea = selectedMode == Mode.Erase;
         SceneView.currentDrawingSceneView.orthographic = true;
+        SceneView.currentDrawingSceneView.rotation = Quaternion.Euler(90, 0, 0);
+        SceneView.currentDrawingSceneView.isRotationLocked = true;
+        //Debug.Log(SceneView.currentDrawingSceneView.rotation);
     }
 
     private void EventHandler() {
         HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
         Camera camera = SceneView.currentDrawingSceneView.camera;
         Vector3 mousePosition = Event.current.mousePosition;
-        //Vector3 beforeMousePosition = mousePosition;
         mousePosition = new Vector2(mousePosition.x, camera.pixelHeight - mousePosition.y);
-        //Debug.LogFormat("pos1, pos2 : {0}, {1}", beforeMousePosition, mousePosition);
         Vector3 worldPos = camera.ScreenToWorldPoint(mousePosition);
-        //Debug.Log("worldpos = " + worldPos);
         Vector3Int gridPos = level.WorldToGridCoordinates(worldPos);
         int x = gridPos.x;
         int z = gridPos.z;
-        Debug.LogFormat("GridPos {0}, {1}", x, z);
+        //Debug.LogFormat("GridPos {0}, {1}", x, z);
+        switch (currentMode) {
+            case Mode.View:
+                break;
+            case Mode.Paint:
+                if (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseDrag) {
+                    Paint(x, z);
+                }
+                break;
+            case Mode.Edit:
+                if (Event.current.type == EventType.MouseDown) {
+                    Edit(x, z);
+                    originalPosX = x;
+                    originalPosZ = z;
+                }
+                if (Event.current.type == EventType.MouseUp || Event.current.type == EventType.Ignore) {
+                    if (itemInspected != null) {
+                        Move();
+                    }
+                }
+                if (itemInspected != null) {
+                    itemInspected.transform.position = Handles.FreeMoveHandle(
+                        itemInspected.transform.position,
+                        itemInspected.transform.rotation,
+                        Level.GRID_CELL_SIZE / 2,
+                        Level.GRID_CELL_SIZE / 2 * Vector3.one,
+                        Handles.RectangleHandleCap
+                    );
+                }
+                break;
+            case Mode.Erase:
+                if (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseDrag) {
+                    Erase(x, z);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void Paint(int x, int z) {
+        //Debug.LogFormat("Painting {0},{1}", x, z);
+        if (pieceSelected == null || !level.IsInsideGridBounds(x, z)) {
+            return;
+        }
+        if (level.Pieces[x + z * level.TotalColumns] != null) {
+            DestroyImmediate(level.Pieces[x + z * level.TotalColumns].gameObject);
+        }
+        GameObject obj = PrefabUtility.InstantiatePrefab(pieceSelected.gameObject) as GameObject;
+        obj.transform.parent = level.transform;
+        obj.name = string.Format("[{0}, {1}] [{2}]", x, z, obj.name);
+        obj.transform.position = level.GridToWorldCoordinates(x, z);
+        obj.hideFlags = HideFlags.HideInHierarchy;
+        level.Pieces[x + z * level.TotalColumns] = obj.GetComponent<LevelPiece>();
+    }
+
+    private void Erase(int x, int z) {
+        //Debug.LogFormat("Erasing {0},{1}", x, z);
+        if (!level.IsInsideGridBounds(x, z)) {
+            return;
+        }
+        if (level.Pieces[x + z * level.TotalColumns] != null) {
+            DestroyImmediate(level.Pieces[x + z * level.TotalColumns].gameObject);
+        }
+    }
+
+    private void Edit(int x, int z) {
+        //Debug.LogFormat("Editing {0},{1}", x, z);
+        if (!level.IsInsideGridBounds(x, z) || level.Pieces[x + z * level.TotalColumns] == null) {
+            itemInspected = null;
+        } else {
+            itemInspected = level.Pieces[x + z * level.TotalColumns].GetComponent<PaletteItem>();
+        }
+        Repaint();
+    }
+
+    private void Move() {
+        Vector3Int gridPoint = level.WorldToGridCoordinates(itemInspected.transform.position);
+        int x = gridPoint.x;
+        int z = gridPoint.z;
+        if (x == originalPosX && z == originalPosZ) {
+            return;
+        }
+        if (!level.IsInsideGridBounds(x, z) || level.Pieces[x + z * level.TotalColumns] != null) {
+            itemInspected.transform.position = level.GridToWorldCoordinates(originalPosX, originalPosZ);
+        } else {
+            level.Pieces[originalPosX + originalPosZ * level.TotalColumns] = null;
+            level.Pieces[x + z * level.TotalColumns] = itemInspected.GetComponent<LevelPiece>();
+            level.Pieces[x + z * level.TotalColumns].transform.position = level.GridToWorldCoordinates(x, z);
+        }
     }
 
     private void EditWalkArea(int col, int row) {
@@ -273,15 +380,5 @@ public class LevelInspector : Editor {
         Handles.EndGUI();
     }
     #endregion
-
-    private string[] GetSpriteNames(SpriteRenderer[] spriteRenders, Level level) {
-        string[] names = new string[level.TotalColumns * level.TotalRows];
-        for (int i = 0; i < spriteRenders.Length; i++) {
-            if (spriteRenders[i] != null) {
-                names[i] = spriteRenders[i].sprite.name;
-            }
-        }
-        return names;
-    }
 
 }

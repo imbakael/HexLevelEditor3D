@@ -113,7 +113,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   category: 1
   itemName: MyStone
-  inspectedScript: {fileID: 0}
+  inspectedScript: {fileID: 7205516607046465448}
 --- !u!114 &7205516607046465448
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -126,3 +126,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28438fad55d9f1b47ac3cf6e12ff62a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  info: 

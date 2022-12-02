@@ -23,6 +23,8 @@ public class PaletteWindow : EditorWindow {
     private const float BUTTON_WIDTH = 80;
     private const float BUTTON_HEIGHT = 90;
 
+    private GUIStyle tabStyle;
+
     public static void ShowPalette() {
         instance = GetWindow<PaletteWindow>();
         instance.titleContent = new GUIContent("Palette");
@@ -36,6 +38,12 @@ public class PaletteWindow : EditorWindow {
         if (categorizedItems == null) {
             InitContent();
         }
+        InitStyles();
+    }
+
+    private void InitStyles() {
+        GUISkin skin = (GUISkin)Resources.Load("PaletteWindowSkin");
+        tabStyle = skin.label;
     }
 
     private void InitCategories() {
@@ -79,7 +87,7 @@ public class PaletteWindow : EditorWindow {
 
     private void DrawTabs() {
         int index = (int)categorySelected;
-        index = GUILayout.Toolbar(index, categoryLabels.ToArray());
+        index = GUILayout.Toolbar(index, categoryLabels.ToArray(), tabStyle);
         categorySelected = categories[index];
     }
 

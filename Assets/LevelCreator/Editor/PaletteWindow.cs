@@ -15,7 +15,7 @@ public class PaletteWindow : EditorWindow {
     private List<string> categoryLabels;
     private PaletteItem.Category categorySelected;
 
-    private string path = "Assets/Prefabs/LevelPieces";
+    private string path = "Assets/Resources/LevelPieces";
     private List<PaletteItem> items;
     private Dictionary<PaletteItem.Category, List<PaletteItem>> categorizedItems;
     private Dictionary<PaletteItem, Texture2D> previews;
@@ -49,7 +49,7 @@ public class PaletteWindow : EditorWindow {
     private void InitCategories() {
         categories = EditorUtils.GetListFromEnum<PaletteItem.Category>();
         categoryLabels = new List<string>();
-        foreach (var item in categories) {
+        foreach (PaletteItem.Category item in categories) {
             categoryLabels.Add(item.ToString());
         }
     }
@@ -124,11 +124,12 @@ public class PaletteWindow : EditorWindow {
     }
 
     private GUIStyle GetGUIStyle() {
-        var style = new GUIStyle(GUI.skin.button);
-        style.alignment = TextAnchor.LowerCenter;
-        style.imagePosition = ImagePosition.ImageAbove;
-        style.fixedWidth = BUTTON_WIDTH;
-        style.fixedHeight = BUTTON_HEIGHT;
+        var style = new GUIStyle(GUI.skin.button) {
+            alignment = TextAnchor.LowerCenter,
+            imagePosition = ImagePosition.ImageAbove,
+            fixedWidth = BUTTON_WIDTH,
+            fixedHeight = BUTTON_HEIGHT
+        };
         return style;
     }
 

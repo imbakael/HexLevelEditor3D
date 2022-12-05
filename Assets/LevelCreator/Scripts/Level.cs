@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,6 +8,8 @@ using UnityEngine.Rendering;
 
 public class Level : MonoBehaviour {
     public const string DIRECTORY = "/SaveData/";
+    public string fileName = "";
+
     public const float GRID_CELL_SIZE = 1f;
 
     [SerializeField] private LevelPiece[] pieces = default;
@@ -23,7 +26,6 @@ public class Level : MonoBehaviour {
     public int[] WalkArea { get; set; }
     public bool ShowWalkArea { get; set; } = false;
 
-    public string fileName = "";
     private readonly Color normalColor = Color.white;
     private readonly Color selectedColor = Color.yellow;
     private readonly Color canWalkColor = new Color(0, 255, 255);
@@ -40,19 +42,19 @@ public class Level : MonoBehaviour {
             Gizmos.matrix = oldMatrix;
         }
 
-        //if (ShowWalkArea && WalkArea != null && WalkArea.Length > 0) {
-        //    var oldColor = Gizmos.color;
-        //    for (int i = 0; i < TotalColumns; i++) {
-        //        for (int j = 0; j < TotalRows; j++) {
-        //            int currentIndex = i + j * TotalColumns;
-        //            int value = WalkArea[currentIndex];
-        //            Vector3 pos = GridToWorldCoordinates(i, j);
-        //            Gizmos.color = value == 0 ? Color.red : canWalkColor;
-        //            Gizmos.DrawWireCube(pos, 0.5f * GRID_CELL_SIZE * Vector3.one);
-        //        }
-        //    }
-        //    Gizmos.color = oldColor;
-        //}
+        if (ShowWalkArea && WalkArea != null && WalkArea.Length > 0) {
+            var oldColor = Gizmos.color;
+            for (int z = 0; z < TotalRows; z++) {
+                for (int x = 0; x < TotalColumns; x++) {
+                    int currentIndex = x + z * TotalColumns;
+                    int value = WalkArea[currentIndex];
+                    Vector3 pos = GridToWorldCoordinates(x, z);
+                    Gizmos.color = value == 0 ? Color.red : canWalkColor;
+                    Gizmos.DrawWireCube(pos, HexMetrics.outerRadius * Vector3.one);
+                }
+            }
+            Gizmos.color = oldColor;
+        }
     }
 
     private void OnDrawGizmosSelected() {
@@ -116,8 +118,8 @@ public class Level : MonoBehaviour {
 
     #endregion
 
-    public Vector3Int WorldToGridCoordinates(Vector3 point) {
-        HexCoordinates coordinates = HexCoordinates.FromPosition(point);
+    public Vector3Int WorldToGridCoordinates(Vector3 worldPosition) {
+        HexCoordinates coordinates = HexCoordinates.FromPosition(worldPosition);
         return new Vector3Int(coordinates.GridPosX, 0, coordinates.Z);
     }
 
@@ -129,11 +131,47 @@ public class Level : MonoBehaviour {
         );
     }
 
-    public bool IsInsideGridBounds(Vector3 point) {
-        Vector3Int gridPos = WorldToGridCoordinates(point);
+    public bool IsInsideGridBounds(Vector3 worldPosition) {
+        Vector3Int gridPos = WorldToGridCoordinates(worldPosition);
         return IsInsideGridBounds(gridPos.x, gridPos.z);
     }
 
     public bool IsInsideGridBounds(int col, int row) => col >= 0 && col < TotalColumns && row >= 0 && row < TotalRows;
 
+    public void Load(string fileName) {
+        this.fileName = fileName;
+        SaveItem saveItem = GetSaveItem(fileName);
+        TotalColumns = saveItem.col;
+        TotalRows = saveItem.row;
+        WalkArea = saveItem.walkArea;
+        pieces = GetPieces(saveItem.paths);
+    }
+
+    private SaveItem GetSaveItem(string fileName) {
+        string path = Application.persistentDataPath + DIRECTORY + fileName;
+        if (File.Exists(path)) {
+            string json = File.ReadAllText(path);
+            return JsonConvert.DeserializeObject<SaveItem>(json);
+        }
+        return SaveItem.GetDefaultSaveItem();
+    }
+
+    private LevelPiece[] GetPieces(string[] paths) {
+        LevelPiece[] result = new LevelPiece[paths.Length];
+        for (int z = 0; z < TotalRows; z++) {
+            for (int x = 0; x < TotalColumns; x++) {
+                int index = x + z * TotalColumns;
+                if (!string.IsNullOrEmpty(paths[index])) {
+                    GameObject prefab = Resources.Load(paths[index]) as GameObject;
+                    GameObject obj = Instantiate(prefab);
+                    obj.transform.parent = transform;
+                    obj.name = string.Format("{0},{1}|{2}", x, z, prefab.name);
+                    obj.transform.position = GridToWorldCoordinates(x, z);
+                    obj.hideFlags = HideFlags.HideInHierarchy;
+                    result[index] = obj.GetComponent<LevelPiece>();
+                }
+            }
+        }
+        return result;
+    }
 }

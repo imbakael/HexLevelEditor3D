@@ -4,6 +4,7 @@ using UnityEditor;
 using System.Linq;
 using System.IO;
 using System;
+using Newtonsoft.Json;
 
 [CustomEditor(typeof(Level))]
 public class LevelInspector : Editor {
@@ -11,7 +12,8 @@ public class LevelInspector : Editor {
         View,
         Paint,
         Edit,
-        Erase
+        Erase,
+        WalkArea // 可行走区域
     }
 
     private Mode currentMode;
@@ -27,7 +29,6 @@ public class LevelInspector : Editor {
     private PaletteItem itemSelected;
     private Texture2D itemPreview;
     private LevelPiece pieceSelected;
-    private SpriteRenderer spriteRendererInspected;
     private PaletteItem itemInspected;
 
     private int originalPosX;
@@ -42,6 +43,7 @@ public class LevelInspector : Editor {
         level = target as Level;
         level.transform.hideFlags = HideFlags.NotEditable;
         InitLevel();
+        InitWalkArea();
         ResetResizeValues();
         InitMode();
         InitStyles();
@@ -63,6 +65,12 @@ public class LevelInspector : Editor {
     private void InitLevel() {
         if (level.Pieces == null || level.Pieces.Length == 0) {
             level.Pieces = new LevelPiece[level.TotalColumns * level.TotalRows];
+        }
+    }
+
+    private void InitWalkArea() {
+        if (level.WalkArea == null || level.WalkArea.Length == 0) {
+            level.WalkArea = new int[level.TotalColumns * level.TotalRows];
         }
     }
 
@@ -103,8 +111,7 @@ public class LevelInspector : Editor {
     private void DrawLevelDataGUI() {
         EditorGUILayout.LabelField("数据", titleStyle);
         using (new EditorGUILayout.VerticalScope("box")) {
-            level.ShowGrid = EditorGUILayout.Toggle("显示网格", level.ShowGrid);
-            level.ShowWalkArea = EditorGUILayout.Toggle("显示可行走区域", level.ShowWalkArea);
+            
         }
     }
 
@@ -162,12 +169,12 @@ public class LevelInspector : Editor {
 
     private void ResizeLevel() {
         LevelPiece[] newPieces = new LevelPiece[newTotalColumns * newTotalRows];
-        for (int col = 0; col < level.TotalColumns; col++) {
-            for (int row = 0; row < level.TotalRows; row++) {
-                if (col < newTotalRows && row < newTotalRows) {
-                    newPieces[col + row * newTotalColumns] = level.Pieces[col + row * level.TotalColumns];
+        for (int z = 0; z < level.TotalRows; z++) {
+            for (int x = 0; x < level.TotalColumns; x++) {
+                if (x < newTotalColumns && z < newTotalRows) {
+                    newPieces[x + z * newTotalColumns] = level.Pieces[x + z * level.TotalColumns];
                 } else {
-                    LevelPiece lp = level.Pieces[col + row * level.TotalColumns];
+                    LevelPiece lp = level.Pieces[x + z * level.TotalColumns];
                     if (lp != null) {
                         DestroyImmediate(lp.gameObject);
                     }
@@ -175,9 +182,20 @@ public class LevelInspector : Editor {
             }
         }
         level.Pieces = newPieces;
+        int[] newWalkArea = new int[newTotalColumns * newTotalRows];
+        for (int z = 0; z < level.TotalRows; z++) {
+            for (int x = 0; x < level.TotalColumns; x++) {
+                int currentIndex = x + z * level.TotalColumns;
+                if (x < newTotalColumns && z < newTotalRows) {
+                    int newIndex = x + z * newTotalColumns;
+                    newWalkArea[newIndex] = level.WalkArea[currentIndex];
+                }
+            }
+        }
+        level.WalkArea = newWalkArea;
         level.TotalColumns = newTotalColumns;
         level.TotalRows = newTotalRows;
-        //Save(level);
+        Save(level);
         SceneView.RepaintAll();
     }
 
@@ -188,7 +206,6 @@ public class LevelInspector : Editor {
         DrawModeGUI();
         ModeHandler();
         EventHandler();
-        DrawAlphaGUI();
         //DrawPaletteItemCategoryGUI();
         DrawSaveAndLoadGUI();
         DrawShowGridGUI();
@@ -207,6 +224,7 @@ public class LevelInspector : Editor {
             case Mode.Paint:
             case Mode.Edit:
             case Mode.Erase:
+            case Mode.WalkArea:
                 Tools.current = Tool.None;
                 break;
             case Mode.View:
@@ -219,7 +237,7 @@ public class LevelInspector : Editor {
             itemInspected = null;
             Repaint();
         }
-        level.ShowWalkArea = selectedMode == Mode.Erase;
+        level.ShowWalkArea = selectedMode == Mode.WalkArea;
         SceneView.currentDrawingSceneView.orthographic = true;
         SceneView.currentDrawingSceneView.rotation = Quaternion.Euler(90, 0, 0);
         SceneView.currentDrawingSceneView.isRotationLocked = true;
@@ -270,6 +288,11 @@ public class LevelInspector : Editor {
                     Erase(x, z);
                 }
                 break;
+            case Mode.WalkArea:
+                if (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseDrag) {
+                    EditWalkArea(x, z);
+                }
+                break;
             default:
                 break;
         }
@@ -285,7 +308,7 @@ public class LevelInspector : Editor {
         }
         GameObject obj = PrefabUtility.InstantiatePrefab(pieceSelected.gameObject) as GameObject;
         obj.transform.parent = level.transform;
-        obj.name = string.Format("[{0}, {1}] [{2}]", x, z, obj.name);
+        obj.name = string.Format("{0},{1}|{2}", x, z, obj.name);
         obj.transform.position = level.GridToWorldCoordinates(x, z);
         obj.hideFlags = HideFlags.HideInHierarchy;
         level.Pieces[x + z * level.TotalColumns] = obj.GetComponent<LevelPiece>();
@@ -338,32 +361,17 @@ public class LevelInspector : Editor {
         }
     }
 
-    private void DrawAlphaGUI() {
-        Handles.BeginGUI();
-        GUILayout.BeginArea(new Rect(Screen.safeArea.width - 400, 10, 480, 100));
-        using (new EditorGUILayout.HorizontalScope("box")) {
-            GUILayout.Label("全局alpha值", GUILayout.MaxWidth(150));
-            float lastAlpha = alpha;
-            alpha = GUILayout.HorizontalSlider(alpha, 0f, 1f);
-            if (lastAlpha != alpha) {
-                //RefreshSpritesAlpha();
-            }
-        }
-        GUILayout.EndArea();
-        Handles.EndGUI();
-    }
-
     private void DrawSaveAndLoadGUI() {
         Handles.BeginGUI();
         GUILayout.BeginArea(new Rect(Screen.safeArea.width - 150f, 160f, 100f, 100f));
         using (new EditorGUILayout.VerticalScope("box")) {
             if (GUILayout.Button("保存关卡", GUILayout.MaxHeight(40))) {
-                //Save(level);
+                Save(level);
             }
             GUILayout.Space(20);
             if (GUILayout.Button("关闭", GUILayout.MaxHeight(40))) {
-                //Selection.activeGameObject = GameObject.Find("LevelMainMenu");
-                //DestroyImmediate(level.gameObject);
+                Selection.activeGameObject = GameObject.Find("LevelMainMenu");
+                DestroyImmediate(level.gameObject);
             }
         }
         GUILayout.EndArea();
@@ -381,4 +389,33 @@ public class LevelInspector : Editor {
     }
     #endregion
 
+    private void Save(Level level) {
+        Debug.Log("Save!, fileName = " + level.fileName);
+        string dir = Application.persistentDataPath + Level.DIRECTORY;
+        if (!Directory.Exists(dir)) {
+            Directory.CreateDirectory(dir);
+        }
+        var saveItem = new SaveItem {
+            levelId = 1,
+            col = level.TotalColumns,
+            row = level.TotalRows,
+            walkArea = level.WalkArea,
+            paths = GetPaths(level)
+        };
+        string json = JsonConvert.SerializeObject(saveItem);
+        File.WriteAllText(dir + level.fileName, json);
+    }
+
+    private string[] GetPaths(Level level) {
+        string[] paths = new string[level.Pieces.Length];
+        for (int z = 0; z < level.TotalRows; z++) {
+            for (int x = 0; x < level.TotalColumns; x++) {
+                int index = x + z * level.TotalColumns;
+                if (level.Pieces[index] != null) {
+                    paths[index] = "LevelPieces/" + level.Pieces[index].name.Split('|')[1];
+                }
+            }
+        }
+        return paths;
+    }
 }

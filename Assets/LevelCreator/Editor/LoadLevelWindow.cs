@@ -15,7 +15,7 @@ public class LoadLevelWindow : ScriptableWizard {
         if (!Directory.Exists(path)) {
             Directory.CreateDirectory(path);
         }
-        DirectoryInfo folder = new DirectoryInfo(path);
+        var folder = new DirectoryInfo(path);
         fileInfos = folder.GetFiles("*.txt");
     }
 

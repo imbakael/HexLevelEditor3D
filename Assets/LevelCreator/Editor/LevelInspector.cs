@@ -20,7 +20,6 @@ public class LevelInspector : Editor {
     private Mode selectedMode;
 
     private List<string> modeLabels;
-    private List<string> categoryLabels;
 
     private Level level;
     private int newTotalColumns;
@@ -33,8 +32,6 @@ public class LevelInspector : Editor {
 
     private int originalPosX;
     private int originalPosZ;
-
-    private float alpha = 1f;
 
     private GUIStyle titleStyle;
 
@@ -169,12 +166,22 @@ public class LevelInspector : Editor {
 
     private void ResizeLevel() {
         LevelPiece[] newPieces = new LevelPiece[newTotalColumns * newTotalRows];
+        int[] newWalkArea = new int[newTotalColumns * newTotalRows];
+        TileOffset[] newOffsets = new TileOffset[newTotalColumns * newTotalRows];
         for (int z = 0; z < level.TotalRows; z++) {
             for (int x = 0; x < level.TotalColumns; x++) {
+                int oldIndex = x + z * level.TotalColumns;
                 if (x < newTotalColumns && z < newTotalRows) {
-                    newPieces[x + z * newTotalColumns] = level.Pieces[x + z * level.TotalColumns];
+                    int newIndex = x + z * newTotalColumns;
+                    newPieces[newIndex] = level.Pieces[oldIndex];
+                    newWalkArea[newIndex] = level.WalkArea[oldIndex];
+                    TileOffset offSet = level.Offsets[oldIndex];
+                    if (offSet != null) {
+                        offSet.index = newIndex;
+                        newOffsets[newIndex] = offSet;
+                    }
                 } else {
-                    LevelPiece lp = level.Pieces[x + z * level.TotalColumns];
+                    LevelPiece lp = level.Pieces[oldIndex];
                     if (lp != null) {
                         DestroyImmediate(lp.gameObject);
                     }
@@ -182,17 +189,8 @@ public class LevelInspector : Editor {
             }
         }
         level.Pieces = newPieces;
-        int[] newWalkArea = new int[newTotalColumns * newTotalRows];
-        for (int z = 0; z < level.TotalRows; z++) {
-            for (int x = 0; x < level.TotalColumns; x++) {
-                int currentIndex = x + z * level.TotalColumns;
-                if (x < newTotalColumns && z < newTotalRows) {
-                    int newIndex = x + z * newTotalColumns;
-                    newWalkArea[newIndex] = level.WalkArea[currentIndex];
-                }
-            }
-        }
-        level.WalkArea = newWalkArea;
+        level.WalkArea = newWalkArea; 
+        level.Offsets = newOffsets;
         level.TotalColumns = newTotalColumns;
         level.TotalRows = newTotalRows;
         Save(level);
@@ -241,7 +239,6 @@ public class LevelInspector : Editor {
         SceneView.currentDrawingSceneView.orthographic = true;
         SceneView.currentDrawingSceneView.rotation = Quaternion.Euler(90, 0, 0);
         SceneView.currentDrawingSceneView.isRotationLocked = true;
-        //Debug.Log(SceneView.currentDrawingSceneView.rotation);
     }
 
     private void EventHandler() {
@@ -305,6 +302,7 @@ public class LevelInspector : Editor {
         }
         if (level.Pieces[x + z * level.TotalColumns] != null) {
             DestroyImmediate(level.Pieces[x + z * level.TotalColumns].gameObject);
+            level.Offsets[x + z * level.TotalColumns] = null;
         }
         GameObject obj = PrefabUtility.InstantiatePrefab(pieceSelected.gameObject) as GameObject;
         obj.transform.parent = level.transform;
@@ -339,6 +337,14 @@ public class LevelInspector : Editor {
         int x = gridPoint.x;
         int z = gridPoint.z;
         if (x == originalPosX && z == originalPosZ) {
+            if (itemInspected.transform.position != level.GridToWorldCoordinates(originalPosX, originalPosZ)) {
+                Vector3 offset = itemInspected.transform.position - level.GridToWorldCoordinates(originalPosX, originalPosZ);
+                level.Offsets[originalPosX + originalPosZ * level.TotalColumns] = new TileOffset {
+                    index = originalPosX + originalPosZ * level.TotalColumns,
+                    x = offset.x,
+                    z = offset.z
+                };
+            }
             return;
         }
         if (!level.IsInsideGridBounds(x, z) || level.Pieces[x + z * level.TotalColumns] != null) {
@@ -348,6 +354,7 @@ public class LevelInspector : Editor {
             level.Pieces[x + z * level.TotalColumns] = itemInspected.GetComponent<LevelPiece>();
             level.Pieces[x + z * level.TotalColumns].transform.position = level.GridToWorldCoordinates(x, z);
         }
+        level.Offsets[originalPosX + originalPosZ * level.TotalColumns] = null;
     }
 
     private void EditWalkArea(int col, int row) {
@@ -400,7 +407,8 @@ public class LevelInspector : Editor {
             col = level.TotalColumns,
             row = level.TotalRows,
             walkArea = level.WalkArea,
-            paths = GetPaths(level)
+            paths = GetPaths(level),
+            offsets = level.Offsets
         };
         string json = JsonConvert.SerializeObject(saveItem);
         File.WriteAllText(dir + level.fileName, json);

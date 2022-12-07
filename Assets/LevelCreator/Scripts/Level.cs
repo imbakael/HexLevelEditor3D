@@ -2,9 +2,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 public class Level : MonoBehaviour {
     public const string DIRECTORY = "/SaveData/";
@@ -18,12 +16,13 @@ public class Level : MonoBehaviour {
         set { pieces = value; }
     }
 
-    public Transform[] Layers { get; set; }
     public int TotalColumns { get; set; } = 15; // 列数，x方向
     public int TotalRows { get; set; } = 11; // 行数, y方向
+    public int[] WalkArea { get; set; }
+
+    public TileOffset[] Offsets { get; set; }
 
     public bool ShowGrid { get; set; } = true;
-    public int[] WalkArea { get; set; }
     public bool ShowWalkArea { get; set; } = false;
 
     private readonly Color normalColor = Color.white;
@@ -144,6 +143,7 @@ public class Level : MonoBehaviour {
         TotalColumns = saveItem.col;
         TotalRows = saveItem.row;
         WalkArea = saveItem.walkArea;
+        Offsets = saveItem.offsets;
         pieces = GetPieces(saveItem.paths);
     }
 
@@ -166,7 +166,8 @@ public class Level : MonoBehaviour {
                     GameObject obj = Instantiate(prefab);
                     obj.transform.parent = transform;
                     obj.name = string.Format("{0},{1}|{2}", x, z, prefab.name);
-                    obj.transform.position = GridToWorldCoordinates(x, z);
+                    TileOffset offset = Offsets[index];
+                    obj.transform.position = offset == null ? GridToWorldCoordinates(x, z) : (GridToWorldCoordinates(x, z) + new Vector3(offset.x, 0, offset.z));
                     obj.hideFlags = HideFlags.HideInHierarchy;
                     result[index] = obj.GetComponent<LevelPiece>();
                 }

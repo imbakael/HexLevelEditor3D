@@ -27,9 +27,9 @@ public struct HexCoordinates {
     }
 
     public static int GetIndex(int gridX, int gridZ, int width) {
-        int hexX = gridX - gridZ / 2;
-        int hexZ = gridZ;
-        return hexX + hexZ * width + hexZ / 2;
+        int x = gridX - gridZ / 2;
+        int z = gridZ;
+        return x + z * width + z / 2;
     }
 
     /// <summary>

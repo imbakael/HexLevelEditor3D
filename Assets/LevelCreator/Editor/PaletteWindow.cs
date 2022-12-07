@@ -109,11 +109,11 @@ public class PaletteWindow : EditorWindow {
     }
 
     private GUIContent[] GetGUICOntentsFromItems() {
-        List<GUIContent> guiContents = new List<GUIContent>();
+        var guiContents = new List<GUIContent>();
         if (previews.Count == items.Count) {
             int totalItems = categorizedItems[categorySelected].Count;
             for (int i = 0; i < totalItems; i++) {
-                GUIContent guiContent = new GUIContent();
+                var guiContent = new GUIContent();
                 PaletteItem paletteItem = categorizedItems[categorySelected][i];
                 guiContent.text = paletteItem.itemName;
                 guiContent.image = previews[paletteItem];

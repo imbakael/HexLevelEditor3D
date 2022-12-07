@@ -8,7 +8,7 @@ public class Level : MonoBehaviour {
     public const string DIRECTORY = "/SaveData/";
     public string fileName = "";
 
-    public const float GRID_CELL_SIZE = 1f;
+    public const float GRID_CELL_SIZE = 1.478016688f;
 
     [SerializeField] private LevelPiece[] pieces = default;
     public LevelPiece[] Pieces {

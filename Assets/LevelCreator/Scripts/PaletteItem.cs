@@ -6,11 +6,13 @@ public class PaletteItem : MonoBehaviour {
 
 #if UNITY_EDITOR
     public enum Category {
-        Grass,
-        Stone
+        Plain,
+        Forest,
+        Mountain,
+        Ocean
     }
 
-    public Category category = Category.Grass;
+    public Category category = Category.Plain;
     public string itemName = "";
     public Object inspectedScript;
 #endif

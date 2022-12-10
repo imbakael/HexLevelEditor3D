@@ -10,18 +10,7 @@ public class SaveItem {
     public string[] paths;
     public TileOffset[] offsets;
 
-    public static SaveItem GetDefaultSaveItem() {
-        return new SaveItem {
-            levelId = -1,
-            col = 2,
-            row = 2,
-            walkArea = new int[2 * 2],
-            paths = new string[2 * 2],
-            offsets = new TileOffset[2 * 2]
-        };
-    }
-
-    public static SaveItem GetDefaultSaveItem(int col, int row) {
+    public static SaveItem GetDefaultSaveItem(int col = 2, int row = 2) {
         return new SaveItem {
             levelId = -1,
             col = col,

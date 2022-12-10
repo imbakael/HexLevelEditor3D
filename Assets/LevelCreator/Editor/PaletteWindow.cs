@@ -144,11 +144,34 @@ public class PaletteWindow : EditorWindow {
     private void GeneratePreviews() {
         foreach (PaletteItem item in items) {
             if (!previews.ContainsKey(item)) {
-                Texture2D preview = AssetPreview.GetAssetPreview(item.gameObject);
+                //Texture2D preview = AssetPreview.GetAssetPreview(item.gameObject);
+                Texture2D preview = SpriteToTexture2D(item.gameObject.GetComponentInChildren<SpriteRenderer>().sprite);
                 if (preview != null) {
                     previews.Add(item, preview);
                 }
             }
+        }
+    }
+
+    private Texture2D SpriteToTexture2D(Sprite sprite) {
+        try {
+            if (sprite.rect.width != sprite.texture.width) {
+                var newText = new Texture2D((int)sprite.rect.width, (int)sprite.rect.height);
+                Color[] colors = newText.GetPixels();
+                Color[] newColors = sprite.texture.GetPixels(
+                    (int)Math.Ceiling(sprite.textureRect.x),
+                    (int)Math.Ceiling(sprite.textureRect.y),
+                    (int)Math.Ceiling(sprite.textureRect.width),
+                    (int)Math.Ceiling(sprite.textureRect.height));
+                Debug.Log(colors.Length + "_" + newColors.Length);
+                newText.SetPixels(newColors);
+                newText.Apply();
+                return newText;
+            } else {
+                return sprite.texture;
+            }
+        } catch {
+            return sprite.texture;
         }
     }
 

@@ -96,6 +96,7 @@ public class LevelInspector : Editor {
 
     #region OnInspectorGUI
     public override void OnInspectorGUI() {
+        //DrawDefaultInspector();
         DrawLevelDataGUI();
         DrawLevelSizeGUI();
         DrawPieceSelectedGUI();

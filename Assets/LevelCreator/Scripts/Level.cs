@@ -10,7 +10,7 @@ public class Level : MonoBehaviour {
 
     public const float GRID_CELL_SIZE = 1.478016688f;
 
-    [SerializeField] private LevelPiece[] pieces = default;
+    private LevelPiece[] pieces;
     public LevelPiece[] Pieces {
         get { return pieces; }
         set { pieces = value; }

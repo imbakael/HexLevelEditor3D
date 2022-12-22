@@ -5,8 +5,8 @@ using Newtonsoft.Json;
 
 public class NewLevelWindow : ScriptableWizard {
 
-    [Range(2, 64)] public int col = 10;
-    [Range(2, 64)] public int row = 10;
+    [Range(2, 128)] public int col = 10;
+    [Range(2, 128)] public int row = 10;
 
     private string levelName = "";
 

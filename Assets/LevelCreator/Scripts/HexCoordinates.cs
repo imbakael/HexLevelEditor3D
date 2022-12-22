@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-// 逻辑坐标，与网格坐标(也就是视图坐标)一一对应
+// 逻辑坐标，与网格坐标一一对应
 [System.Serializable]
 public struct HexCoordinates {
     [SerializeField]
@@ -17,7 +17,7 @@ public struct HexCoordinates {
         this.z = z;
     }
 
-    // 视图坐标转逻辑坐标
+    // 网格坐标转逻辑坐标
     public static HexCoordinates FromOffsetCoordinates(int gridX, int girdZ) {
         return new HexCoordinates(gridX - girdZ / 2, girdZ);
     }
